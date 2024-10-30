@@ -1,0 +1,69 @@
+services:
+
+  tunnel:
+    container_name: tunnel
+    context: seedbox
+    hostname: tunnel
+    build: tunnel
+    ports:
+    - "0.0.0.0:8112:8112" # Deluge web client
+    #- "0.0.0.0:58846:58846" # Deluge daemon
+    devices:
+    - /dev/net/tun:/dev/net/tun
+    env_file:
+    - .env
+    cap_add:
+    - NET_ADMIN
+    restart: unless-stopped
+
+  preflight:
+    container_name: preflight
+    context: seedbox  
+    build:
+      context: preflight
+      additional_contexts:
+        shared: shared
+    volumes:
+    - /srv/shared:/srv/shared
+    env_file:
+    - .env
+    depends_on:
+      tunnel:
+        condition: service_healthy
+    network_mode: "service:tunnel"
+
+  monitor:
+    container_name: monitor
+    context: seedbox
+    build:
+      context: monitor
+      additional_contexts:
+        shared: shared
+    env_file:
+    - .env
+    depends_on:
+      preflight:
+        condition: service_completed_successfully
+    network_mode: "service:tunnel"
+    healthcheck:
+      test: ls /healthy
+    restart: unless-stopped
+
+  deluge:
+    container_name: deluge
+    image: lscr.io/linuxserver/deluge
+    context: seedbox
+    volumes:
+    - /home/ademar/deluge:/config
+    - /srv/shared:/srv/shared
+    environment:
+      PUID: ${USER_ID}
+      PGID: ${GROUP_ID}
+      TZ: ${TIMEZONE}
+    network_mode: "service:tunnel"
+    depends_on:
+      preflight:
+        condition: service_completed_successfully
+    healthcheck:
+      test: curl --fail http://localhost:8112 || exit 1
+    restart: unless-stopped
