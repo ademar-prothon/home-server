@@ -17,3 +17,9 @@ apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin do
 docker run hello-world
 
 usermod -a -G docker ademar
+
+mkdir /srv/shared
+chmod 777 /srv/shared
+touch /srv/shared/.notempty
+
+apt install ntfs-3g bmon htop -y
